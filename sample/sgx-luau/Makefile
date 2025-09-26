@@ -220,7 +220,7 @@ Enclave/Enclave_t.c: $(SGX_EDGER8R) Enclave/Enclave.edl
 	@echo "GEN  =>  $@"
 
 Enclave/Enclave_t.o: Enclave/Enclave_t.c
-	@$(CC) $(Enclave_C_Flags) -c $< -o $@
+	@$(CC) $(SGX_COMMON_CFLAGS) -nostdinc -fvisibility=hidden -fpie -fstack-protector -IInclude -IEnclave -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/stlport -I./luau-src/VM/include -I./luau-src/Compiler/include -I./luau-src/Ast/include -I./luau-src/Common/include -I/usr/include -D_POSIX_C_SOURCE -c $< -o $@
 	@echo "CC   <=  $<"
 
 Enclave/Enclave_syscalls.o: Enclave/Enclave_syscalls.c 
