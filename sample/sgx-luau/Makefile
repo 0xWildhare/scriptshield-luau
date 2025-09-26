@@ -231,7 +231,7 @@ Enclave/%.o: Enclave/%.cpp
 	@$(CXX) $(SGX_COMMON_CFLAGS) -nostdinc -fvisibility=hidden -fpie -fstack-protector -IInclude -IEnclave -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/stlport -I./luau-src/VM/include -I./luau-src/Compiler/include -I./luau-src/Ast/include -I./luau-src/Common/include -I/usr/include -D_POSIX_C_SOURCE -std=c++17 -nostdinc++ -fno-rtti -c $< -o $@
 	@echo "CXX  <=  $<"
 
-$(Enclave_Name): Enclave/Enclave_t.o $(Enclave_Cpp_Objects) Enclave/Enclave_syscalls.o $(LUAU_OBJS)
+$(Enclave_Name): Enclave/Enclave_t.o $(Enclave_Cpp_Objects) Enclave/Enclave_syscalls.o
 	@$(CXX) $(Enclave_Link_Flags) $^ ../../src/musl-sgx/lib/libc.a -o $@
 	@echo "LINK =>  $@"
 
