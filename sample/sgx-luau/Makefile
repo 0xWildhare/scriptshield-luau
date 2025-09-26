@@ -120,8 +120,7 @@ endif
 Crypto_Library_Name := sgx_tcrypto
 
 Enclave_Cpp_Files := Enclave/Enclave.cpp $(wildcard Enclave/Edger8rSyntax/*.cpp) $(wildcard Enclave/TrustedLibrary/*.cpp)
-Enclave_Include_Paths := -IInclude -IEnclave -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/stlport \
-	-I./$(LUAU_DIR)/VM/include -I./$(LUAU_DIR)/Compiler/include -I./$(LUAU_DIR)/Ast/include -I./$(LUAU_DIR)/Common/include -I/usr/include
+Enclave_Include_Paths := -IInclude -IEnclave -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/stlport -I./$(LUAU_DIR)/VM/include -I./$(LUAU_DIR)/Compiler/include -I./$(LUAU_DIR)/Ast/include -I./$(LUAU_DIR)/Common/include -I/usr/include
 
 Enclave_C_Flags := $(SGX_COMMON_CFLAGS) -nostdinc -fvisibility=hidden -fpie -fstack-protector $(Enclave_Include_Paths) -D_POSIX_C_SOURCE
 Enclave_Cpp_Flags := $(Enclave_C_Flags) -std=c++17 -nostdinc++ -fno-rtti
