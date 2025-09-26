@@ -35,6 +35,9 @@
 #include <string.h>
 #include <time.h>
 
+// SGX-compatible includes for size_t
+#include <stddef.h>
+
 #include "Enclave.h"
 #include "Enclave_t.h"
 
