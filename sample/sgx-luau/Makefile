@@ -223,12 +223,12 @@ Enclave/Enclave_t.o: Enclave/Enclave_t.c
 	@$(CC) $(SGX_COMMON_CFLAGS) -nostdinc -fvisibility=hidden -fpie -fstack-protector -IInclude -IEnclave -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/stlport -I./luau-src/VM/include -I./luau-src/Compiler/include -I./luau-src/Ast/include -I./luau-src/Common/include -I/usr/include -D_POSIX_C_SOURCE -c $< -o $@
 	@echo "CC   <=  $<"
 
-Enclave/Enclave_syscalls.o: Enclave/Enclave_syscalls.c 
-	@$(CC) $(Enclave_C_Flags) -c $< -o $@
+Enclave/Enclave_syscalls.o: Enclave/Enclave_syscalls.c
+	@$(CC) $(SGX_COMMON_CFLAGS) -nostdinc -fvisibility=hidden -fpie -fstack-protector -IInclude -IEnclave -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/stlport -I./luau-src/VM/include -I./luau-src/Compiler/include -I./luau-src/Ast/include -I./luau-src/Common/include -I/usr/include -D_POSIX_C_SOURCE -c $< -o $@
 	@echo "CC   <=  $<"
 
 Enclave/%.o: Enclave/%.cpp
-	@$(CXX) $(Enclave_Cpp_Flags) -c $< -o $@
+	@$(CXX) $(SGX_COMMON_CFLAGS) -nostdinc -fvisibility=hidden -fpie -fstack-protector -IInclude -IEnclave -I$(SGX_SDK)/include -I$(SGX_SDK)/include/tlibc -I$(SGX_SDK)/include/stlport -I./luau-src/VM/include -I./luau-src/Compiler/include -I./luau-src/Ast/include -I./luau-src/Common/include -I/usr/include -D_POSIX_C_SOURCE -std=c++17 -nostdinc++ -fno-rtti -c $< -o $@
 	@echo "CXX  <=  $<"
 
 $(Enclave_Name): Enclave/Enclave_t.o $(Enclave_Cpp_Objects) Enclave/Enclave_syscalls.o $(LUAU_OBJS)
