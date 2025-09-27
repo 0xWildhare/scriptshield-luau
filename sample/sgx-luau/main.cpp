@@ -93,6 +93,10 @@ static int parse_json_mock(lua_State* L) {
 void run_production_luau_test() {
     std::cout << "\n=== Testing Production GitHub Mapper ===" << std::endl;
 
+    // Debug: show current directory and files
+    system("pwd");
+    system("ls -la /scriptshield-luau/");
+
     lua_State* L = luaL_newstate();
     luaL_openlibs(L);
 
@@ -110,10 +114,14 @@ void run_production_luau_test() {
     };
 
     for (int i = 0; script_paths[i] != nullptr; i++) {
+        std::cout << "Trying to load script from: " << script_paths[i] << std::endl;
         script_content = read_file(script_paths[i]);
         if (!script_content.empty()) {
-            std::cout << "Loaded production script from: " << script_paths[i] << std::endl;
+            std::cout << "Successfully loaded production script from: " << script_paths[i] << std::endl;
+            std::cout << "Script size: " << script_content.length() << " bytes" << std::endl;
             break;
+        } else {
+            std::cout << "  File not found or empty" << std::endl;
         }
     }
 
