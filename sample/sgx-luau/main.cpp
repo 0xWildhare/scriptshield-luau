@@ -36,6 +36,9 @@ static int parse_json_mock(lua_State* L) {
         lua_pushinteger(L, 1634213);
         lua_setfield(L, -2, "id");
 
+        lua_pushstring(L, "MDQ6VXNlcjE2MzQyMTM=");
+        lua_setfield(L, -2, "node_id");
+
         lua_pushstring(L, "Oscar Franco");
         lua_setfield(L, -2, "name");
 
@@ -147,7 +150,7 @@ void run_production_luau_test() {
                     lua_newtable(L); // params table
 
                     lua_newtable(L); // payload table
-                    lua_pushstring(L, R"({"login":"ospfranco","id":1634213,"name":"Oscar Franco","bio":"Freelance Dev","blog":"ospfranco.com","location":"Barcelona, Spain","twitter_username":"ospfranco","public_repos":47,"public_gists":14,"followers":533,"following":6,"created_at":"2012-04-11T19:00:30Z","updated_at":"2025-09-10T20:03:58Z","disk_usage":325487,"two_factor_authentication":true,"plan":{"name":"free","private_repos":10000}})");
+                    lua_pushstring(L, R"({"login":"ospfranco","id":1634213,"node_id":"MDQ6VXNlcjE2MzQyMTM=","name":"Oscar Franco","bio":"Freelance Dev","blog":"ospfranco.com","location":"Barcelona, Spain","twitter_username":"ospfranco","public_repos":47,"public_gists":14,"followers":533,"following":6,"created_at":"2012-04-11T19:00:30Z","updated_at":"2025-09-10T20:03:58Z","disk_usage":325487,"two_factor_authentication":true,"plan":{"name":"free","private_repos":10000}})");
                     lua_setfield(L, -2, "default");
                     lua_setfield(L, -2, "payload");
 
@@ -182,6 +185,15 @@ void run_production_luau_test() {
                             lua_getfield(L, -1, "public_repos");
                             if (lua_isnumber(L, -1)) {
                                 std::cout << "  public_repos: " << lua_tonumber(L, -1) << std::endl;
+                            }
+                            lua_pop(L, 1);
+
+                            // Verify that node_id is NOT in the output (proving processing occurred)
+                            lua_getfield(L, -1, "node_id");
+                            if (lua_isnil(L, -1)) {
+                                std::cout << "✅ VERIFICATION: node_id correctly filtered out (not in output)" << std::endl;
+                            } else {
+                                std::cout << "❌ VERIFICATION FAILED: node_id found in output: " << lua_tostring(L, -1) << std::endl;
                             }
                             lua_pop(L, 1);
                         }
