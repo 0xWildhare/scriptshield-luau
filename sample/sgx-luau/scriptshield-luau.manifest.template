@@ -65,7 +65,8 @@ sgx.trusted_files = [
   "file:{{ arch_libdir }}/",
   "file:/usr{{ arch_libdir }}/",
   "file:/usr/lib/ssl/certs/ca-certificates.crt",
-  "file:/etc/ssl/certs/ca-certificates.crt"
+  "file:/etc/ssl/certs/ca-certificates.crt",
+  "file:{{ binary_dir }}/production-script.lua"
 ]
 
 # Command line arguments
