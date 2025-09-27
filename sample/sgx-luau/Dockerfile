@@ -131,7 +131,7 @@ COPY --from=builder /workspace/scriptshield-luau/sample/sgx-luau/app /scriptshie
 COPY --from=builder /workspace/scriptshield-luau/sample/sgx-luau/scriptshield-luau.manifest.template /scriptshield-luau/
 
 # Copy the production script for testing
-COPY scripts/lua_scripts/b23fe21f1deacf653ef9f988492a73044053d32a74cd7f48a6d7a37bce9019f0 /production-script.lua
+COPY sample/sgx-luau/production-script.lua /production-script.lua
 
 # Copy the start script
 COPY sample/sgx-luau/start.sh /scriptshield-luau/start.sh
