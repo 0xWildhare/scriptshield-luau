@@ -97,7 +97,7 @@ void run_production_luau_test() {
     luaL_openlibs(L);
 
     // Add mock parse_json function to global scope
-    lua_pushcfunction(L, parse_json_mock);
+    lua_pushcfunction(L, parse_json_mock, "parse_json");
     lua_setglobal(L, "parse_json");
 
     // Load the production script
