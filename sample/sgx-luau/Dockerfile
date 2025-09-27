@@ -134,7 +134,6 @@ RUN mkdir -p /root/save && chmod 700 /root/save
 
 # Copy only what's needed from the builder
 COPY --from=builder /workspace/scriptshield-luau/sample/sgx-luau/app /scriptshield-luau/
-COPY --from=builder /workspace/scriptshield-luau/sample/sgx-luau/enclave.signed.so /scriptshield-luau/
 COPY --from=builder /workspace/scriptshield-luau/sample/sgx-luau/scriptshield-luau.manifest.sgx /scriptshield-luau/
 COPY --from=builder /workspace/scriptshield-luau/sample/sgx-luau/scriptshield-luau.sig /scriptshield-luau/
 COPY --from=builder /workspace/scriptshield-luau/sample/sgx-luau/scriptshield-luau.manifest /scriptshield-luau/
@@ -144,7 +143,6 @@ COPY sample/sgx-luau/start.sh /scriptshield-luau/start.sh
 
 # Ensure all copied files have proper permissions
 RUN chmod 755 /scriptshield-luau/app && \
-    chmod 644 /scriptshield-luau/enclave.signed.so && \
     chmod 644 /scriptshield-luau/scriptshield-luau.manifest.sgx && \
     chmod 644 /scriptshield-luau/scriptshield-luau.sig && \
     chmod 644 /scriptshield-luau/scriptshield-luau.manifest && \
