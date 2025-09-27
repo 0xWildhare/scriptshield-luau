@@ -20,7 +20,7 @@ loader.env.HOME = "/root"
 loader.env.USERPROFILE = "/root"
 loader.env.USER = "root"
 loader.env.USERNAME = "root"
-loader.env.PWD = "{{ binary_dir }}"
+loader.env.PWD = "/scriptshield-luau"
 loader.env.SHELL = "/bin/bash"
 
 # Terminal and color settings
@@ -54,7 +54,7 @@ fs.mounts = [
   { path = "/bin", uri = "file:/bin" },
   { path = "/usr/bin", uri = "file:/usr/bin" },
   { path = "/tmp", uri = "file:/tmp", type = "tmpfs" },
-  { path = "{{ binary_dir }}", uri = "file:{{ binary_dir }}" },
+  { path = "/scriptshield-luau", uri = "file:/scriptshield-luau" },
   { path = "/root/save", uri = "file:/root/save", type = "encrypted", key_name = "_sgx_mrenclave" }
 ]
 

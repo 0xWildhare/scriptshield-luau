@@ -86,9 +86,9 @@ RUN make
 
 # Generate the Gramine manifest for ScriptShield
 RUN gramine-manifest \
-    -Dentrypoint=/workspace/scriptshield-luau/sample/sgx-luau/app \
+    -Dentrypoint=/scriptshield-luau/app \
     -Darch_libdir=/lib/x86_64-linux-gnu \
-    -Dbinary_dir=/workspace/scriptshield-luau/sample/sgx-luau/ \
+    -Dbinary_dir=/scriptshield-luau \
     scriptshield-luau.manifest.template > scriptshield-luau.manifest
 
 # Sign the manifest
