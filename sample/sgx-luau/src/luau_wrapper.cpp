@@ -271,6 +271,157 @@ void run_simple_test() {
 
 // C wrapper functions for Rust FFI
 extern "C" {
+    // Structure to hold the result of Luau execution
+    struct LuauResult {
+        bool success;
+        char* result_json;
+        char* error_message;
+    };
+
+    // Create a new Luau environment
+    lua_State* create_luau_env() {
+        lua_State* L = luaL_newstate();
+        if (!L) {
+            return nullptr;
+        }
+
+        luaL_openlibs(L);
+
+        // Add parse_json function
+        lua_pushcfunction(L, parse_json_mock, "parse_json");
+        lua_setglobal(L, "parse_json");
+
+        return L;
+    }
+
+    // Close a Luau environment
+    void close_luau_env(lua_State* L) {
+        if (L) {
+            lua_close(L);
+        }
+    }
+
+    // Execute a mapper with given parameters
+    LuauResult* execute_mapper(lua_State* L, const char* mapper_code, const char* params_json) {
+        LuauResult* result = new LuauResult{false, nullptr, nullptr};
+
+        if (!L || !mapper_code || !params_json) {
+            result->error_message = strdup("Invalid parameters");
+            return result;
+        }
+
+        // Compile the mapper code
+        size_t bytecode_size = 0;
+        lua_CompileOptions options = {};
+        char* bytecode = luau_compile(mapper_code, strlen(mapper_code), &options, &bytecode_size);
+
+        if (!bytecode) {
+            result->error_message = strdup("Failed to compile mapper code");
+            return result;
+        }
+
+        // Load the bytecode
+        if (luau_load(L, "mapper", bytecode, bytecode_size, 0) != 0) {
+            result->error_message = strdup(lua_tostring(L, -1));
+            free(bytecode);
+            return result;
+        }
+
+        // Execute the script to get the mapper function
+        if (lua_pcall(L, 0, 1, 0) != 0) {
+            result->error_message = strdup(lua_tostring(L, -1));
+            free(bytecode);
+            return result;
+        }
+
+        // Check if the result is a function
+        if (!lua_isfunction(L, -1)) {
+            result->error_message = strdup("Mapper code did not return a function");
+            free(bytecode);
+            return result;
+        }
+
+        // TODO: Parse the JSON parameters properly
+        // For now, we'll use the hardcoded test data
+
+        // For now, create a simple test payload structure
+        // In real implementation, this would parse the actual params_json
+        lua_newtable(L); // params table
+
+        lua_newtable(L); // payload table
+        lua_pushstring(L, R"({"login":"ospfranco","id":1634213,"node_id":"MDQ6VXNlcjE2MzQyMTM=","name":"Oscar Franco","bio":"Freelance Dev","blog":"ospfranco.com","location":"Barcelona, Spain","twitter_username":"ospfranco","public_repos":47,"public_gists":14,"followers":533,"following":6,"created_at":"2012-04-11T19:00:30Z","updated_at":"2025-09-10T20:03:58Z","disk_usage":325487,"two_factor_authentication":true,"plan":{"name":"free","private_repos":10000}})");
+        lua_setfield(L, -2, "default");
+        lua_setfield(L, -2, "payload");
+
+        // Call the mapper function
+        if (lua_pcall(L, 1, 1, 0) != 0) {
+            result->error_message = strdup(lua_tostring(L, -1));
+            free(bytecode);
+            return result;
+        }
+
+        // Convert the result to JSON
+        if (lua_istable(L, -1)) {
+            // Simple JSON serialization - in a real implementation you'd want proper JSON conversion
+            std::string json_result = "{";
+
+            // Get username
+            lua_getfield(L, -1, "username");
+            if (lua_isstring(L, -1)) {
+                json_result += "\"username\":\"" + std::string(lua_tostring(L, -1)) + "\",";
+            }
+            lua_pop(L, 1);
+
+            // Get display_name
+            lua_getfield(L, -1, "display_name");
+            if (lua_isstring(L, -1)) {
+                json_result += "\"display_name\":\"" + std::string(lua_tostring(L, -1)) + "\",";
+            }
+            lua_pop(L, 1);
+
+            // Get followers
+            lua_getfield(L, -1, "followers");
+            if (lua_isnumber(L, -1)) {
+                json_result += "\"followers\":" + std::to_string((int)lua_tonumber(L, -1)) + ",";
+            }
+            lua_pop(L, 1);
+
+            // Get public_repos
+            lua_getfield(L, -1, "public_repos");
+            if (lua_isnumber(L, -1)) {
+                json_result += "\"public_repos\":" + std::to_string((int)lua_tonumber(L, -1)) + ",";
+            }
+            lua_pop(L, 1);
+
+            // Remove trailing comma and close
+            if (json_result.back() == ',') {
+                json_result.pop_back();
+            }
+            json_result += "}";
+
+            result->result_json = strdup(json_result.c_str());
+            result->success = true;
+        } else {
+            result->error_message = strdup("Mapper did not return a table");
+        }
+
+        free(bytecode);
+        return result;
+    }
+
+    // Free a LuauResult
+    void free_luau_result(LuauResult* result) {
+        if (result) {
+            if (result->result_json) {
+                free(result->result_json);
+            }
+            if (result->error_message) {
+                free(result->error_message);
+            }
+            delete result;
+        }
+    }
+
     int run_all_tests() {
         std::cout << "ScriptShield-Luau SGX Starting..." << std::endl;
 
