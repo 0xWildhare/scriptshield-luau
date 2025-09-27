@@ -243,5 +243,6 @@ $(Signed_Enclave_Name): $(Enclave_Name)
 .PHONY: clean
 
 clean:
-	@rm -f $(App_Name) $(Enclave_Name) $(Signed_Enclave_Name) $(App_Cpp_Objects) App/Enclave_u.* App/*.o Enclave/*.o $(Enclave_Cpp_Objects) Enclave/Enclave_t.* $(LUAU_OBJS)
+	@rm -f $(App_Name) $(Enclave_Name) $(Signed_Enclave_Name) $(App_Cpp_Objects) App/Enclave_u.* App/*.o Enclave/*.o $(Enclave_Cpp_Objects) Enclave/Enclave_t.*
+	@rm -f $(LUAU_OBJS)
 	@echo "Cleaned all build artifacts"
