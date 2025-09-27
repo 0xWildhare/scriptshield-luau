@@ -123,6 +123,9 @@ ENV SHELL=/bin/bash
 WORKDIR /scriptshield-luau
 RUN mkdir -p /root/save && chmod 700 /root/save
 
+# Generate Gramine SGX key in final stage
+RUN gramine-sgx-gen-private-key
+
 # Copy only what's needed from the builder
 COPY --from=builder /workspace/scriptshield-luau/sample/sgx-luau/app /scriptshield-luau/
 COPY --from=builder /workspace/scriptshield-luau/sample/sgx-luau/scriptshield-luau.manifest.template /scriptshield-luau/
