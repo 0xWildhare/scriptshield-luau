@@ -84,17 +84,8 @@ WORKDIR /workspace/scriptshield-luau
 WORKDIR /workspace/scriptshield-luau/sample/sgx-luau
 RUN make
 
-# Generate the Gramine manifest for ScriptShield
-RUN gramine-manifest \
-    -Dentrypoint=/scriptshield-luau/app \
-    -Darch_libdir=/lib/x86_64-linux-gnu \
-    -Dbinary_dir=/scriptshield-luau \
-    scriptshield-luau.manifest.template > scriptshield-luau.manifest
-
-# Sign the manifest
-RUN gramine-sgx-sign \
-    --manifest scriptshield-luau.manifest \
-    --output scriptshield-luau.manifest.sgx
+# Copy the manifest template to final stage (we'll generate it there)
+# No manifest generation here since paths will be different in final container
 
 # Final stage - runtime image
 FROM gramineproject/gramine:stable-jammy AS final
@@ -134,12 +125,22 @@ RUN mkdir -p /root/save && chmod 700 /root/save
 
 # Copy only what's needed from the builder
 COPY --from=builder /workspace/scriptshield-luau/sample/sgx-luau/app /scriptshield-luau/
-COPY --from=builder /workspace/scriptshield-luau/sample/sgx-luau/scriptshield-luau.manifest.sgx /scriptshield-luau/
-COPY --from=builder /workspace/scriptshield-luau/sample/sgx-luau/scriptshield-luau.sig /scriptshield-luau/
-COPY --from=builder /workspace/scriptshield-luau/sample/sgx-luau/scriptshield-luau.manifest /scriptshield-luau/
+COPY --from=builder /workspace/scriptshield-luau/sample/sgx-luau/scriptshield-luau.manifest.template /scriptshield-luau/
 
 # Copy the start script
 COPY sample/sgx-luau/start.sh /scriptshield-luau/start.sh
+
+# Generate the Gramine manifest with correct runtime paths
+RUN gramine-manifest \
+    -Dentrypoint=/scriptshield-luau/app \
+    -Darch_libdir=/lib/x86_64-linux-gnu \
+    -Dbinary_dir=/scriptshield-luau \
+    scriptshield-luau.manifest.template > scriptshield-luau.manifest
+
+# Sign the manifest
+RUN gramine-sgx-sign \
+    --manifest scriptshield-luau.manifest \
+    --output scriptshield-luau.manifest.sgx
 
 # Ensure all copied files have proper permissions
 RUN chmod 755 /scriptshield-luau/app && \
