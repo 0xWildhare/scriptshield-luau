@@ -32,20 +32,25 @@ $(LUAU_DIR)/%.o: $(LUAU_DIR)/%.cpp
 	@$(CXX) $(CXXFLAGS) $(LUAU_INCLUDES) -c $< -o $@
 	@echo "CXX  <=  $<"
 
-# Build Luau static library
-luau: $(LUAU_OBJS)
-	@ar rcs libluau.a $(LUAU_OBJS)
+# Compile C++ wrapper
+src/luau_wrapper.o: src/luau_wrapper.cpp
+	@$(CXX) $(CXXFLAGS) $(LUAU_INCLUDES) -c $< -o $@
+	@echo "CXX  <=  $<"
+
+# Build Luau static library with C++ wrapper
+luau: $(LUAU_OBJS) src/luau_wrapper.o
+	@ar rcs libluau.a $(LUAU_OBJS) src/luau_wrapper.o
 	@echo "AR   =>  libluau.a"
 
 # Build with Cargo after Luau library is ready
 $(APP_NAME): luau
 	@echo "Building Rust application with embedded Luau..."
-	@LUAU_LIB_PATH=$(PWD) cargo build --release
+	@cargo build --release
 	@cp target/release/$(APP_NAME) ./$(APP_NAME)
 	@echo "LINK =>  $@"
 
 clean:
 	@cargo clean
-	@rm -f $(APP_NAME) libluau.a
+	@rm -f $(APP_NAME) libluau.a src/luau_wrapper.o
 	@find $(LUAU_DIR) -name "*.o" -type f -delete 2>/dev/null || true
 	@echo "Cleaned all build artifacts"
