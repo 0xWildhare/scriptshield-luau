@@ -82,7 +82,7 @@ WORKDIR /workspace/scriptshield-luau
 
 # Build the SGX-Luau enclave
 WORKDIR /workspace/scriptshield-luau/sample/sgx-luau
-RUN make clean && make
+RUN make
 
 # Generate the Gramine manifest for ScriptShield
 RUN gramine-manifest \

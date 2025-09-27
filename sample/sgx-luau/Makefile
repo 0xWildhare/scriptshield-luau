@@ -244,5 +244,5 @@ $(Signed_Enclave_Name): $(Enclave_Name)
 
 clean:
 	@rm -f $(App_Name) $(Enclave_Name) $(Signed_Enclave_Name) $(App_Cpp_Objects) App/Enclave_u.* App/*.o Enclave/*.o $(Enclave_Cpp_Objects) Enclave/Enclave_t.*
-	@rm -f $(LUAU_OBJS)
+	@find $(LUAU_DIR) -name "*.o" -type f -delete 2>/dev/null || true
 	@echo "Cleaned all build artifacts"
