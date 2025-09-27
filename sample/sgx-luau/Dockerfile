@@ -80,9 +80,6 @@ COPY . ./scriptshield-luau
 # Build the SGX-Luau enclave with deterministic flags
 WORKDIR /workspace/scriptshield-luau
 
-# Compile musl-sgx first
-RUN cd src/musl-sgx && make
-
 # Build the SGX-Luau enclave
 WORKDIR /workspace/scriptshield-luau/sample/sgx-luau
 RUN make clean && make
