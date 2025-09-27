@@ -100,10 +100,25 @@ void run_production_luau_test() {
     lua_pushcfunction(L, parse_json_mock, "parse_json");
     lua_setglobal(L, "parse_json");
 
-    // Load the production script
-    std::string script_content = read_file("/production-script.lua");
+    // Load the production script - try multiple paths
+    std::string script_content;
+    const char* script_paths[] = {
+        "/production-script.lua",
+        "/scriptshield-luau/production-script.lua",
+        "production-script.lua",
+        nullptr
+    };
+
+    for (int i = 0; script_paths[i] != nullptr; i++) {
+        script_content = read_file(script_paths[i]);
+        if (!script_content.empty()) {
+            std::cout << "Loaded production script from: " << script_paths[i] << std::endl;
+            break;
+        }
+    }
+
     if (script_content.empty()) {
-        std::cerr << "Failed to load production script" << std::endl;
+        std::cerr << "Failed to load production script from any location" << std::endl;
         lua_close(L);
         return;
     }
