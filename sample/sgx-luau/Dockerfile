@@ -81,12 +81,24 @@ RUN mkdir -p /root/save && chmod 700 /root/save
 # Copy the entire ScriptShield-Luau project
 COPY . ./scriptshield-luau
 
-# Build the SGX-Luau enclave with deterministic flags
-WORKDIR /workspace/scriptshield-luau
-
-# Build the SGX-Luau enclave
+# Build the Luau library first
 WORKDIR /workspace/scriptshield-luau/sample/sgx-luau
-RUN make
+
+# Compile Luau source files and create static library
+RUN g++ -std=c++17 -O2 -Wall -Wextra \
+    -I./luau-src/VM/include -I./luau-src/Compiler/include -I./luau-src/Ast/include \
+    -c luau-src/VM/src/*.cpp luau-src/Compiler/src/*.cpp luau-src/Ast/src/*.cpp && \
+    g++ -std=c++17 -O2 -Wall -Wextra \
+    -I./luau-src/VM/include -I./luau-src/Compiler/include -I./luau-src/Ast/include \
+    -c src/luau_wrapper.cpp && \
+    ar rcs libluau.a *.o && \
+    echo "Luau library built successfully"
+
+# Build the Rust application directly with cargo
+RUN RUSTFLAGS="-C target-feature=+retpoline" \
+    cargo build --release --bin app && \
+    strip target/release/app && \
+    chmod 755 target/release/app
 
 # Copy the manifest template to final stage (we'll generate it there)
 # No manifest generation here since paths will be different in final container
@@ -131,7 +143,7 @@ RUN mkdir -p /root/save && chmod 700 /root/save
 RUN gramine-sgx-gen-private-key
 
 # Copy only what's needed from the builder
-COPY --from=builder /workspace/scriptshield-luau/sample/sgx-luau/app /scriptshield-luau/
+COPY --from=builder /workspace/scriptshield-luau/sample/sgx-luau/target/release/app /scriptshield-luau/
 COPY --from=builder /workspace/scriptshield-luau/sample/sgx-luau/scriptshield-luau.manifest.template /scriptshield-luau/
 
 # Copy the production script for testing

@@ -9,3 +9,9 @@ libc = "0.2"
 [[bin]]
 name = "app"
 path = "src/main.rs"
+
+[profile.release]
+panic = "abort"
+lto = true
+codegen-units = 1
+opt-level = "s"
