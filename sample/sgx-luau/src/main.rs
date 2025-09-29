@@ -161,12 +161,12 @@ fn run_enhanced_test() {
 
 fn main() {
     println!("🔒 ScriptShield-Luau SGX Starting...");
-    println!("Note: Enhanced Rust test logic has been moved into the SGX enclave for better security.");
 
-    // Run original tests (these are now mostly running inside the enclave)
+    // Run original tests
     unsafe {
         run_all_tests();
     }
 
-    println!("✅ Rust host application completed. The enhanced test is now running inside the SGX enclave.");
+    // Run enhanced Rust integration test (now running inside the enclave with Gramine)
+    run_enhanced_test();
 }
