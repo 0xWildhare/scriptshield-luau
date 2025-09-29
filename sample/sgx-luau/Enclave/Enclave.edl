@@ -44,6 +44,7 @@ enclave {
 	public void test_time();
 	public void run_lua(int argc, [user_check] char** argv);
 	public void run_luau([in,size=source_len] const char* script_source, size_t source_len);
+	public void run_enhanced_rust_test();
 	public void childfunc();
     };
 

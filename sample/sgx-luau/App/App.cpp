@@ -318,6 +318,10 @@ int SGX_CDECL main(int argc, char *argv[])
     }
     run_lua(global_eid, argc, argv);
 
+    // Run the enhanced Rust test inside the enclave instead of outside
+    printf("\n=== Running Enhanced Test Inside Enclave ===\n");
+    run_enhanced_rust_test(global_eid);
+
     /* Destroy the enclave */
     sgx_destroy_enclave(global_eid);
     
