@@ -81,10 +81,20 @@ RUN mkdir -p /root/save && chmod 700 /root/save
 # Copy the entire ScriptShield-Luau project
 COPY . ./scriptshield-luau
 
-# Build the Rust application with native Luau compilation
+# Build the Luau library first
 WORKDIR /workspace/scriptshield-luau/sample/sgx-luau
 
-# Cargo will handle Luau compilation via build.rs
+# Compile Luau source files and create static library
+RUN g++ -std=c++17 -O2 -Wno-unused-parameter -Wno-missing-field-initializers -Wno-maybe-uninitialized \
+    -I./luau-src/VM/include -I./luau-src/Compiler/include -I./luau-src/Ast/include -I./luau-src/Common/include \
+    -c luau-src/VM/src/*.cpp luau-src/Compiler/src/*.cpp luau-src/Ast/src/*.cpp && \
+    g++ -std=c++17 -O2 -Wno-unused-parameter -Wno-missing-field-initializers \
+    -I./luau-src/VM/include -I./luau-src/Compiler/include -I./luau-src/Ast/include -I./luau-src/Common/include \
+    -c src/luau_wrapper.cpp && \
+    ar rcs libluau.a *.o && \
+    echo "Luau library built successfully"
+
+# Build the Rust application directly with cargo
 RUN RUSTFLAGS="-C target-feature=+retpoline" \
     cargo build --release --bin app && \
     strip target/release/app && \
