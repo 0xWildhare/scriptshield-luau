@@ -1,0 +1,76 @@
+# Gramine manifest template for ScriptShield-Luau
+
+# Libos settings
+libos.entrypoint = "{{ entrypoint }}"
+
+# Base configuration
+loader.log_level = "error"
+loader.env.LD_LIBRARY_PATH = "/lib:/usr/lib:{{ arch_libdir }}:/usr{{ arch_libdir }}"
+loader.env.PATH = "/bin:/usr/bin"
+loader.env.SCRIPTSHIELD_ENV = "production"
+
+# Luau runtime settings for ScriptShield
+loader.env.LUAU_OPTIMIZE = "1"
+loader.env.LUAU_DEBUG = "0"
+loader.env.LUAU_NATIVE = "0"
+loader.env.LUAU_COVERAGE = "0"
+
+# Standard environment variables
+loader.env.HOME = "/root"
+loader.env.USERPROFILE = "/root"
+loader.env.USER = "root"
+loader.env.USERNAME = "root"
+loader.env.PWD = "{{ binary_dir }}"
+loader.env.SHELL = "/bin/bash"
+
+# Terminal and color settings
+loader.env.NO_COLOR = ""
+loader.env.COLORTERM = "truecolor"
+loader.env.TERM = "xterm-256color"
+loader.env.COLUMNS = "80"
+loader.env.LINES = "24"
+loader.env.CLICOLOR = "1"
+loader.env.LS_COLORS = "di=34:ln=35:so=32:pi=33:ex=31:bd=34;46:cd=34;43:su=30;41:sg=30;46:tw=30;42:ow=30;43"
+
+# Enable standard security hardening
+sgx.debug = false
+sgx.use_exinfo = true
+
+# System configuration
+sgx.enclave_size = "256M"
+sgx.max_threads = 32
+
+# SGX configuration for attestation
+sgx.remote_attestation = "dcap"
+sgx.isvprodid = 2  # Different product ID for ScriptShield
+sgx.isvsvn = 1
+
+# File system mounts
+fs.mounts = [
+  { path = "/lib", uri = "file:{{ gramine.runtimedir() }}" },
+  { path = "{{ arch_libdir }}", uri = "file:{{ arch_libdir }}" },
+  { path = "/usr{{ arch_libdir }}", uri = "file:/usr{{ arch_libdir }}" },
+  { path = "/etc", uri = "file:/etc" },
+  { path = "/bin", uri = "file:/bin" },
+  { path = "/usr/bin", uri = "file:/usr/bin" },
+  { path = "/tmp", uri = "file:/tmp", type = "tmpfs" },
+  { path = "{{ binary_dir }}", uri = "file:{{ binary_dir }}" },
+  { path = "/root/save", uri = "file:/root/save", type = "encrypted", key_name = "_sgx_mrenclave" }
+]
+
+# SGX trusted files
+sgx.trusted_files = [
+  "file:{{ entrypoint }}",
+  "file:{{ gramine.runtimedir() }}/",
+  "file:{{ arch_libdir }}/",
+  "file:/usr{{ arch_libdir }}/",
+  "file:/usr/lib/ssl/certs/ca-certificates.crt",
+  "file:/etc/ssl/certs/ca-certificates.crt",
+  "file:{{ binary_dir }}/production-script.lua"
+]
+
+# Command line arguments
+loader.argv = ["{{ entrypoint }}"]
+
+# Allow runtime domain names for network operations
+sys.enable_extra_runtime_domain_names_conf = true

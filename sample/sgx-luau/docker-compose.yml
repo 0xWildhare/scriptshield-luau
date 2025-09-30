@@ -1,0 +1,41 @@
+services:
+  scriptshield-luau-sgx:
+    build:
+      context: ../..
+      dockerfile: sample/sgx-luau/Dockerfile
+      shm_size: '2gb'
+    environment:
+      - RUST_LOG=info
+      - RUST_BACKTRACE=0
+      - GRAMINE_SGX=1
+      - SGX=1
+      - GRAMINE_SGX_LVI_MITIGATION=1
+      - GRAMINE_SGX_MITIGATION_LVI=1
+      - GRAMINE_SGX_MITIGATION_MMIO_STALE_DATA=1
+      - GRAMINE_LOG_LEVEL=info
+    devices:
+      - /dev/sgx_enclave:/dev/sgx_enclave
+      - /dev/sgx_provision:/dev/sgx_provision
+    volumes:
+      # AESM socket mount for SGX attestation
+      - /var/run/aesmd/aesm.socket:/var/run/aesmd/aesm.socket
+      # Add a tmpfs mount for /tmp with proper permissions
+      - type: tmpfs
+        target: /tmp
+        tmpfs:
+          size: 100m
+          mode: 0700  # Secure permissions - only root can access
+    restart: "no"  # Do not restart (new private key generated each time)
+    entrypoint: ["/scriptshield-luau/start.sh"]
+    command: []
+    security_opt:
+      - no-new-privileges:true  # Prevent privilege escalation
+    cap_drop:
+      - ALL  # Drop all capabilities for security
+    read_only: true  # Make container filesystem read-only
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+    # Run as root to set up permissions
+    user: "0:0"

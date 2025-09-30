@@ -1,0 +1,18 @@
+[package]
+name = "scriptshield-luau-sgx"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+libc = "0.2"
+serde_json = "1.0"
+
+[[bin]]
+name = "app"
+path = "src/main.rs"
+
+[profile.release]
+panic = "abort"
+lto = true
+codegen-units = 1
+opt-level = "s"
