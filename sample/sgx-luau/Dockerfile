@@ -85,11 +85,11 @@ COPY . ./scriptshield-luau
 WORKDIR /workspace/scriptshield-luau/sample/sgx-luau
 
 # Compile Luau source files and create static library
-RUN g++ -std=c++17 -O2 -Wall -Wextra \
-    -I./luau-src/VM/include -I./luau-src/Compiler/include -I./luau-src/Ast/include \
+RUN g++ -std=c++17 -O2 -Wno-unused-parameter -Wno-missing-field-initializers -Wno-maybe-uninitialized \
+    -I./luau-src/VM/include -I./luau-src/Compiler/include -I./luau-src/Ast/include -I./luau-src/Common/include \
     -c luau-src/VM/src/*.cpp luau-src/Compiler/src/*.cpp luau-src/Ast/src/*.cpp && \
-    g++ -std=c++17 -O2 -Wall -Wextra \
-    -I./luau-src/VM/include -I./luau-src/Compiler/include -I./luau-src/Ast/include \
+    g++ -std=c++17 -O2 -Wno-unused-parameter -Wno-missing-field-initializers \
+    -I./luau-src/VM/include -I./luau-src/Compiler/include -I./luau-src/Ast/include -I./luau-src/Common/include \
     -c src/luau_wrapper.cpp && \
     ar rcs libluau.a *.o && \
     echo "Luau library built successfully"
