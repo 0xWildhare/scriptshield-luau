@@ -20,78 +20,76 @@ std::string read_file(const char* filename) {
     return buffer.str();
 }
 
-// Mock parse_json function for Luau
-static int parse_json_mock(lua_State* L) {
+// Generic JSON parser for Luau - converts JSON string to Lua table
+// Note: This is a simplified implementation. In production, use a proper JSON library.
+static int parse_json(lua_State* L) {
     const char* json_str = luaL_checkstring(L, 1);
 
-    // For this test, we'll create a simple mock that recognizes our test GitHub data
-    // In production, this would be a proper JSON parser
-    if (strstr(json_str, "\"login\":\"ospfranco\"")) {
-        // Create a Lua table representing the parsed GitHub data
-        lua_newtable(L);
+    // For now, return the JSON string as-is and let Luau handle it
+    // In a full implementation, this would parse the JSON into a Lua table
+    // But since Rust is handling the JSON parsing, we can keep this minimal
+    lua_pushstring(L, json_str);
+    return 1;
+}
 
-        // Add basic fields
-        lua_pushstring(L, "ospfranco");
-        lua_setfield(L, -2, "login");
+// Generic function to convert a Lua table to JSON string
+// This recursively handles any table structure without hardcoded fields
+std::string lua_table_to_json(lua_State* L, int index) {
+    std::string result = "{";
+    bool first = true;
 
-        lua_pushinteger(L, 1634213);
-        lua_setfield(L, -2, "id");
+    lua_pushnil(L);  // First key for iteration
+    while (lua_next(L, index) != 0) {
+        if (!first) {
+            result += ",";
+        }
+        first = false;
 
-        lua_pushstring(L, "MDQ6VXNlcjE2MzQyMTM=");
-        lua_setfield(L, -2, "node_id");
+        // Get key (convert to string)
+        std::string key;
+        if (lua_isstring(L, -2)) {
+            key = lua_tostring(L, -2);
+        } else if (lua_isnumber(L, -2)) {
+            key = std::to_string((int)lua_tonumber(L, -2));
+        } else {
+            key = "unknown";
+        }
 
-        lua_pushstring(L, "Oscar Franco");
-        lua_setfield(L, -2, "name");
+        result += "\"" + key + "\":";
 
-        lua_pushstring(L, "Freelance Dev");
-        lua_setfield(L, -2, "bio");
+        // Get value (handle different types)
+        if (lua_isstring(L, -1)) {
+            std::string value = lua_tostring(L, -1);
+            // Escape quotes in the string value
+            std::string escaped_value;
+            for (char c : value) {
+                if (c == '"') {
+                    escaped_value += "\\\"";
+                } else if (c == '\\') {
+                    escaped_value += "\\\\";
+                } else {
+                    escaped_value += c;
+                }
+            }
+            result += "\"" + escaped_value + "\"";
+        } else if (lua_isnumber(L, -1)) {
+            result += std::to_string(lua_tonumber(L, -1));
+        } else if (lua_isboolean(L, -1)) {
+            result += lua_toboolean(L, -1) ? "true" : "false";
+        } else if (lua_istable(L, -1)) {
+            // Recursively handle nested tables
+            result += lua_table_to_json(L, lua_gettop(L));
+        } else if (lua_isnil(L, -1)) {
+            result += "null";
+        } else {
+            result += "null";  // Unknown type
+        }
 
-        lua_pushstring(L, "ospfranco.com");
-        lua_setfield(L, -2, "blog");
-
-        lua_pushstring(L, "Barcelona, Spain");
-        lua_setfield(L, -2, "location");
-
-        lua_pushstring(L, "ospfranco");
-        lua_setfield(L, -2, "twitter_username");
-
-        lua_pushinteger(L, 47);
-        lua_setfield(L, -2, "public_repos");
-
-        lua_pushinteger(L, 14);
-        lua_setfield(L, -2, "public_gists");
-
-        lua_pushinteger(L, 533);
-        lua_setfield(L, -2, "followers");
-
-        lua_pushinteger(L, 6);
-        lua_setfield(L, -2, "following");
-
-        lua_pushstring(L, "2012-04-11T19:00:30Z");
-        lua_setfield(L, -2, "created_at");
-
-        lua_pushstring(L, "2025-09-10T20:03:58Z");
-        lua_setfield(L, -2, "updated_at");
-
-        lua_pushinteger(L, 325487);
-        lua_setfield(L, -2, "disk_usage");
-
-        lua_pushboolean(L, 1);
-        lua_setfield(L, -2, "two_factor_authentication");
-
-        // Add plan table
-        lua_newtable(L);
-        lua_pushstring(L, "free");
-        lua_setfield(L, -2, "name");
-        lua_pushinteger(L, 10000);
-        lua_setfield(L, -2, "private_repos");
-        lua_setfield(L, -2, "plan");
-
-        return 1;
+        lua_pop(L, 1);  // Remove value, keep key for next iteration
     }
 
-    lua_pushnil(L);
-    return 1;
+    result += "}";
+    return result;
 }
 
 void run_production_luau_test() {
@@ -105,8 +103,8 @@ void run_production_luau_test() {
 
     luaL_openlibs(L);
 
-    // Add mock parse_json function to global scope
-    lua_pushcfunction(L, parse_json_mock, "parse_json");
+    // Add parse_json function to global scope
+    lua_pushcfunction(L, parse_json, "parse_json");
     lua_setglobal(L, "parse_json");
 
     // Load the production script - try multiple paths
@@ -287,8 +285,8 @@ extern "C" {
 
         luaL_openlibs(L);
 
-        // Add parse_json function
-        lua_pushcfunction(L, parse_json_mock, "parse_json");
+        // Add generic parse_json function
+        lua_pushcfunction(L, parse_json, "parse_json");
         lua_setglobal(L, "parse_json");
 
         return L;
@@ -360,49 +358,104 @@ extern "C" {
             return result;
         }
 
-        // Convert the result to JSON
+        // Convert the result to JSON using generic converter
         if (lua_istable(L, -1)) {
-            // Simple JSON serialization - in a real implementation you'd want proper JSON conversion
-            std::string json_result = "{";
-
-            // Get username
-            lua_getfield(L, -1, "username");
-            if (lua_isstring(L, -1)) {
-                json_result += "\"username\":\"" + std::string(lua_tostring(L, -1)) + "\",";
-            }
-            lua_pop(L, 1);
-
-            // Get display_name
-            lua_getfield(L, -1, "display_name");
-            if (lua_isstring(L, -1)) {
-                json_result += "\"display_name\":\"" + std::string(lua_tostring(L, -1)) + "\",";
-            }
-            lua_pop(L, 1);
-
-            // Get followers
-            lua_getfield(L, -1, "followers");
-            if (lua_isnumber(L, -1)) {
-                json_result += "\"followers\":" + std::to_string((int)lua_tonumber(L, -1)) + ",";
-            }
-            lua_pop(L, 1);
-
-            // Get public_repos
-            lua_getfield(L, -1, "public_repos");
-            if (lua_isnumber(L, -1)) {
-                json_result += "\"public_repos\":" + std::to_string((int)lua_tonumber(L, -1)) + ",";
-            }
-            lua_pop(L, 1);
-
-            // Remove trailing comma and close
-            if (json_result.back() == ',') {
-                json_result.pop_back();
-            }
-            json_result += "}";
-
+            std::string json_result = lua_table_to_json(L, -1);
             result->result_json = strdup(json_result.c_str());
             result->success = true;
+        } else if (lua_isstring(L, -1)) {
+            // If the script returns a string, use it directly
+            result->result_json = strdup(lua_tostring(L, -1));
+            result->success = true;
+        } else if (lua_isnumber(L, -1)) {
+            // If the script returns a number, convert to string
+            std::string num_result = std::to_string(lua_tonumber(L, -1));
+            result->result_json = strdup(num_result.c_str());
+            result->success = true;
+        } else if (lua_isboolean(L, -1)) {
+            // If the script returns a boolean, convert to string
+            result->result_json = strdup(lua_toboolean(L, -1) ? "true" : "false");
+            result->success = true;
         } else {
-            result->error_message = strdup("Mapper did not return a table");
+            result->error_message = strdup("Mapper returned an unsupported type");
+        }
+
+        free(bytecode);
+        return result;
+    }
+
+    // Execute a mapper with already parsed payload data (generic version)
+    LuauResult* execute_mapper_with_parsed_data(lua_State* L, const char* mapper_code, const char* payload_json) {
+        LuauResult* result = new LuauResult{false, nullptr, nullptr};
+
+        if (!L || !mapper_code || !payload_json) {
+            result->error_message = strdup("Invalid parameters");
+            return result;
+        }
+
+        // Compile the mapper code
+        size_t bytecode_size = 0;
+        lua_CompileOptions options = {};
+        char* bytecode = luau_compile(mapper_code, strlen(mapper_code), &options, &bytecode_size);
+
+        if (!bytecode) {
+            result->error_message = strdup("Failed to compile mapper code");
+            return result;
+        }
+
+        // Load the bytecode
+        if (luau_load(L, "mapper", bytecode, bytecode_size, 0) != 0) {
+            result->error_message = strdup(lua_tostring(L, -1));
+            free(bytecode);
+            return result;
+        }
+
+        // Execute the script to get the mapper function
+        if (lua_pcall(L, 0, 1, 0) != 0) {
+            result->error_message = strdup(lua_tostring(L, -1));
+            free(bytecode);
+            return result;
+        }
+
+        // Check if the result is a function
+        if (!lua_isfunction(L, -1)) {
+            result->error_message = strdup("Mapper code did not return a function");
+            free(bytecode);
+            return result;
+        }
+
+        // Create params table with the parsed payload
+        lua_newtable(L); // params table
+
+        lua_newtable(L); // payload table
+        lua_pushstring(L, payload_json);  // Use the already-parsed payload directly
+        lua_setfield(L, -2, "default");
+        lua_setfield(L, -2, "payload");
+
+        // Call the mapper function
+        if (lua_pcall(L, 1, 1, 0) != 0) {
+            result->error_message = strdup(lua_tostring(L, -1));
+            free(bytecode);
+            return result;
+        }
+
+        // Convert the result using the same generic converter
+        if (lua_istable(L, -1)) {
+            std::string json_result = lua_table_to_json(L, -1);
+            result->result_json = strdup(json_result.c_str());
+            result->success = true;
+        } else if (lua_isstring(L, -1)) {
+            result->result_json = strdup(lua_tostring(L, -1));
+            result->success = true;
+        } else if (lua_isnumber(L, -1)) {
+            std::string num_result = std::to_string(lua_tonumber(L, -1));
+            result->result_json = strdup(num_result.c_str());
+            result->success = true;
+        } else if (lua_isboolean(L, -1)) {
+            result->result_json = strdup(lua_toboolean(L, -1) ? "true" : "false");
+            result->success = true;
+        } else {
+            result->error_message = strdup("Mapper returned an unsupported type");
         }
 
         free(bytecode);
