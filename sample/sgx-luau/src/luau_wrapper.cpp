@@ -20,15 +20,210 @@ std::string read_file(const char* filename) {
     return buffer.str();
 }
 
-// Generic JSON parser for Luau - converts JSON string to Lua table
-// Note: This is a simplified implementation. In production, use a proper JSON library.
+// Forward declarations
+static void skip_whitespace(const char*& json);
+static void parse_json_value(lua_State* L, const char*& json);
+static void parse_json_object(lua_State* L, const char*& json);
+static void parse_json_array(lua_State* L, const char*& json);
+static void parse_json_string(lua_State* L, const char*& json);
+static void parse_json_number(lua_State* L, const char*& json);
+
+// Helper function to skip whitespace
+static void skip_whitespace(const char*& json) {
+    while (*json && (*json == ' ' || *json == '\t' || *json == '\n' || *json == '\r')) {
+        json++;
+    }
+}
+
+// Parse a JSON string (assumes json points to opening quote)
+static void parse_json_string(lua_State* L, const char*& json) {
+    if (*json != '"') {
+        lua_pushnil(L);
+        return;
+    }
+
+    json++; // Skip opening quote
+    const char* start = json;
+    std::string result;
+
+    while (*json && *json != '"') {
+        if (*json == '\\') {
+            json++; // Skip backslash
+            switch (*json) {
+                case '"': result += '"'; break;
+                case '\\': result += '\\'; break;
+                case '/': result += '/'; break;
+                case 'b': result += '\b'; break;
+                case 'f': result += '\f'; break;
+                case 'n': result += '\n'; break;
+                case 'r': result += '\r'; break;
+                case 't': result += '\t'; break;
+                default: result += *json; break;
+            }
+        } else {
+            result += *json;
+        }
+        json++;
+    }
+
+    if (*json == '"') {
+        json++; // Skip closing quote
+    }
+
+    lua_pushstring(L, result.c_str());
+}
+
+// Parse a JSON number
+static void parse_json_number(lua_State* L, const char*& json) {
+    const char* start = json;
+
+    if (*json == '-') json++;
+
+    while (*json && (*json >= '0' && *json <= '9')) json++;
+
+    if (*json == '.') {
+        json++;
+        while (*json && (*json >= '0' && *json <= '9')) json++;
+    }
+
+    if (*json == 'e' || *json == 'E') {
+        json++;
+        if (*json == '+' || *json == '-') json++;
+        while (*json && (*json >= '0' && *json <= '9')) json++;
+    }
+
+    std::string num_str(start, json - start);
+    double value = std::stod(num_str);
+    lua_pushnumber(L, value);
+}
+
+// Parse a JSON array
+static void parse_json_array(lua_State* L, const char*& json) {
+    if (*json != '[') {
+        lua_pushnil(L);
+        return;
+    }
+
+    json++; // Skip '['
+    lua_newtable(L);
+
+    skip_whitespace(json);
+
+    if (*json == ']') {
+        json++;
+        return;
+    }
+
+    int index = 1;
+    while (true) {
+        skip_whitespace(json);
+        parse_json_value(L, json);
+        lua_rawseti(L, -2, index++);
+
+        skip_whitespace(json);
+        if (*json == ',') {
+            json++;
+            continue;
+        } else if (*json == ']') {
+            json++;
+            break;
+        } else {
+            break;
+        }
+    }
+}
+
+// Parse a JSON object
+static void parse_json_object(lua_State* L, const char*& json) {
+    if (*json != '{') {
+        lua_pushnil(L);
+        return;
+    }
+
+    json++; // Skip '{'
+    lua_newtable(L);
+
+    skip_whitespace(json);
+
+    if (*json == '}') {
+        json++;
+        return;
+    }
+
+    while (true) {
+        skip_whitespace(json);
+
+        // Parse key (must be string)
+        if (*json != '"') break;
+        parse_json_string(L, json);
+
+        skip_whitespace(json);
+        if (*json != ':') break;
+        json++; // Skip ':'
+
+        skip_whitespace(json);
+        parse_json_value(L, json);
+
+        // Set table[key] = value
+        lua_settable(L, -3);
+
+        skip_whitespace(json);
+        if (*json == ',') {
+            json++;
+            continue;
+        } else if (*json == '}') {
+            json++;
+            break;
+        } else {
+            break;
+        }
+    }
+}
+
+// Parse any JSON value
+static void parse_json_value(lua_State* L, const char*& json) {
+    skip_whitespace(json);
+
+    if (*json == '"') {
+        parse_json_string(L, json);
+    } else if (*json == '{') {
+        parse_json_object(L, json);
+    } else if (*json == '[') {
+        parse_json_array(L, json);
+    } else if (*json == 't') {
+        if (strncmp(json, "true", 4) == 0) {
+            json += 4;
+            lua_pushboolean(L, 1);
+        } else {
+            lua_pushnil(L);
+        }
+    } else if (*json == 'f') {
+        if (strncmp(json, "false", 5) == 0) {
+            json += 5;
+            lua_pushboolean(L, 0);
+        } else {
+            lua_pushnil(L);
+        }
+    } else if (*json == 'n') {
+        if (strncmp(json, "null", 4) == 0) {
+            json += 4;
+            lua_pushnil(L);
+        } else {
+            lua_pushnil(L);
+        }
+    } else if (*json == '-' || (*json >= '0' && *json <= '9')) {
+        parse_json_number(L, json);
+    } else {
+        lua_pushnil(L);
+    }
+}
+
+// Main parse_json function - converts JSON string to Lua table
 static int parse_json(lua_State* L) {
     const char* json_str = luaL_checkstring(L, 1);
+    const char* json = json_str;
 
-    // For now, return the JSON string as-is and let Luau handle it
-    // In a full implementation, this would parse the JSON into a Lua table
-    // But since Rust is handling the JSON parsing, we can keep this minimal
-    lua_pushstring(L, json_str);
+    parse_json_value(L, json);
     return 1;
 }
 
