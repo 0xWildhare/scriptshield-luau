@@ -327,64 +327,182 @@ static int parse_json(lua_State* L) {
     return 1;
 }
 
+// Forward declaration for recursion
+std::string lua_table_to_json_helper(lua_State* L, int index, int depth);
+
 // Generic function to convert a Lua table to JSON string
 // This recursively handles any table structure without hardcoded fields
 std::string lua_table_to_json(lua_State* L, int index) {
-    std::string result = "{";
-    bool first = true;
+    return lua_table_to_json_helper(L, index, 0);
+}
 
-    lua_pushnil(L);  // First key for iteration
-    while (lua_next(L, index) != 0) {
-        if (!first) {
-            result += ",";
-        }
-        first = false;
-
-        // Get key (convert to string)
-        std::string key;
-        if (lua_isstring(L, -2)) {
-            key = lua_tostring(L, -2);
-        } else if (lua_isnumber(L, -2)) {
-            key = std::to_string((int)lua_tonumber(L, -2));
-        } else {
-            key = "unknown";
-        }
-
-        result += "\"" + key + "\":";
-
-        // Get value (handle different types)
-        if (lua_isstring(L, -1)) {
-            std::string value = lua_tostring(L, -1);
-            // Escape quotes in the string value
-            std::string escaped_value;
-            for (char c : value) {
-                if (c == '"') {
-                    escaped_value += "\\\"";
-                } else if (c == '\\') {
-                    escaped_value += "\\\\";
-                } else {
-                    escaped_value += c;
-                }
-            }
-            result += "\"" + escaped_value + "\"";
-        } else if (lua_isnumber(L, -1)) {
-            result += std::to_string(lua_tonumber(L, -1));
-        } else if (lua_isboolean(L, -1)) {
-            result += lua_toboolean(L, -1) ? "true" : "false";
-        } else if (lua_istable(L, -1)) {
-            // Recursively handle nested tables
-            result += lua_table_to_json(L, lua_gettop(L));
-        } else if (lua_isnil(L, -1)) {
-            result += "null";
-        } else {
-            result += "null";  // Unknown type
-        }
-
-        lua_pop(L, 1);  // Remove value, keep key for next iteration
+// Helper function with recursion depth protection
+std::string lua_table_to_json_helper(lua_State* L, int index, int depth) {
+    // Prevent infinite recursion
+    if (depth > 20) {
+        return "{}";
     }
 
-    result += "}";
+    // Convert negative index to absolute index to handle stack changes
+    if (index < 0) {
+        index = lua_gettop(L) + index + 1;
+    }
+
+    // Check if this is an array (all keys are consecutive integers starting from 1)
+    bool is_array = true;
+    int array_size = 0;
+
+    lua_pushnil(L);
+    while (lua_next(L, index) != 0) {
+        if (!lua_isnumber(L, -2) || lua_tonumber(L, -2) != array_size + 1) {
+            is_array = false;
+            lua_pop(L, 2); // Pop key and value
+            break;
+        }
+        array_size++;
+        lua_pop(L, 1); // Pop value, keep key for next iteration
+    }
+
+    std::string result;
+    bool first = true;
+
+    if (is_array && array_size > 0) {
+        result = "[";
+        for (int i = 1; i <= array_size; i++) {
+            if (!first) result += ",";
+            first = false;
+
+            lua_rawgeti(L, index, i);
+
+            if (lua_isstring(L, -1)) {
+                std::string value = lua_tostring(L, -1);
+                result += "\"";
+                for (char c : value) {
+                    if (c == '"') result += "\\\"";
+                    else if (c == '\\') result += "\\\\";
+                    else if (c == '\n') result += "\\n";
+                    else if (c == '\r') result += "\\r";
+                    else if (c == '\t') result += "\\t";
+                    else result += c;
+                }
+                result += "\"";
+            } else if (lua_isnumber(L, -1)) {
+                double num = lua_tonumber(L, -1);
+                if (num == (long long)num) {
+                    result += std::to_string((long long)num);
+                } else {
+                    result += std::to_string(num);
+                }
+            } else if (lua_isboolean(L, -1)) {
+                result += lua_toboolean(L, -1) ? "true" : "false";
+            } else if (lua_istable(L, -1)) {
+                result += lua_table_to_json_helper(L, -1, depth + 1);
+            } else if (lua_isnil(L, -1)) {
+                result += "null";
+            } else {
+                result += "null";
+            }
+
+            lua_pop(L, 1);
+        }
+        result += "]";
+    } else {
+        result = "{";
+        lua_pushnil(L);
+        while (lua_next(L, index) != 0) {
+            if (!first) result += ",";
+            first = false;
+
+            // Get key
+            std::string key;
+            if (lua_isstring(L, -2)) {
+                key = lua_tostring(L, -2);
+            } else if (lua_isnumber(L, -2)) {
+                key = std::to_string((long long)lua_tonumber(L, -2));
+            } else {
+                key = "unknown";
+            }
+
+            result += "\"" + key + "\":";
+
+            // Get value
+            if (lua_isstring(L, -1)) {
+                std::string value = lua_tostring(L, -1);
+                result += "\"";
+                for (char c : value) {
+                    if (c == '"') result += "\\\"";
+                    else if (c == '\\') result += "\\\\";
+                    else if (c == '\n') result += "\\n";
+                    else if (c == '\r') result += "\\r";
+                    else if (c == '\t') result += "\\t";
+                    else result += c;
+                }
+                result += "\"";
+            } else if (lua_isnumber(L, -1)) {
+                double num = lua_tonumber(L, -1);
+                if (num == (long long)num) {
+                    result += std::to_string((long long)num);
+                } else {
+                    result += std::to_string(num);
+                }
+            } else if (lua_isboolean(L, -1)) {
+                result += lua_toboolean(L, -1) ? "true" : "false";
+            } else if (lua_istable(L, -1)) {
+                result += lua_table_to_json_helper(L, -1, depth + 1);
+            } else if (lua_isnil(L, -1)) {
+                result += "null";
+            } else {
+                result += "null";
+            }
+
+            lua_pop(L, 1);
+        }
+        result += "}";
+    }
+
     return result;
+}
+
+void run_simple_json_test() {
+    std::cout << "\n=== Testing Simple JSON Parser ===" << std::endl;
+
+    lua_State* L = luaL_newstate();
+    if (!L) {
+        std::cerr << "Failed to create Lua state" << std::endl;
+        return;
+    }
+
+    luaL_openlibs(L);
+
+    // Add parse_json function to global scope
+    lua_pushcfunction(L, parse_json, "parse_json");
+    lua_setglobal(L, "parse_json");
+
+    // Test simple JSON parsing
+    const char* test_json = R"({"name":"test","value":42,"nested":{"flag":true}})";
+
+    std::cout << "Testing JSON: " << test_json << std::endl;
+
+    lua_getglobal(L, "parse_json");
+    lua_pushstring(L, test_json);
+
+    if (lua_pcall(L, 1, 1, 0) == 0) {
+        std::cout << "✅ JSON parsing succeeded" << std::endl;
+
+        if (lua_istable(L, -1)) {
+            std::cout << "✅ Result is a table" << std::endl;
+
+            // Test conversion back to JSON
+            std::string json_result = lua_table_to_json(L, -1);
+            std::cout << "✅ Table to JSON conversion: " << json_result << std::endl;
+        } else {
+            std::cout << "❌ Result is not a table, type: " << lua_typename(L, lua_type(L, -1)) << std::endl;
+        }
+    } else {
+        std::cout << "❌ JSON parsing failed: " << lua_tostring(L, -1) << std::endl;
+    }
+
+    lua_close(L);
 }
 
 void run_production_luau_test() {
@@ -775,6 +893,9 @@ extern "C" {
 
         // Run simple test first
         run_simple_test();
+
+        // Run simple JSON parser test
+        run_simple_json_test();
 
         // Run production test
         run_production_luau_test();
