@@ -3,6 +3,8 @@
 #include <cstring>
 #include <fstream>
 #include <sstream>
+#include <cctype>
+#include <cmath>
 
 // Luau includes
 #include "lua.h"
@@ -22,11 +24,14 @@ std::string read_file(const char* filename) {
 
 // Forward declarations
 static void skip_whitespace(const char*& json);
-static void parse_json_value(lua_State* L, const char*& json);
-static void parse_json_object(lua_State* L, const char*& json);
-static void parse_json_array(lua_State* L, const char*& json);
+static void parse_json_value(lua_State* L, const char*& json, int depth = 0);
+static void parse_json_object(lua_State* L, const char*& json, int depth);
+static void parse_json_array(lua_State* L, const char*& json, int depth);
 static void parse_json_string(lua_State* L, const char*& json);
 static void parse_json_number(lua_State* L, const char*& json);
+
+// Maximum recursion depth to prevent stack overflow
+static const int MAX_JSON_DEPTH = 100;
 
 // Helper function to skip whitespace
 static void skip_whitespace(const char*& json) {
@@ -43,12 +48,16 @@ static void parse_json_string(lua_State* L, const char*& json) {
     }
 
     json++; // Skip opening quote
-    const char* start = json;
     std::string result;
 
     while (*json && *json != '"') {
         if (*json == '\\') {
             json++; // Skip backslash
+            if (!*json) {
+                // Unexpected end of string
+                lua_pushnil(L);
+                return;
+            }
             switch (*json) {
                 case '"': result += '"'; break;
                 case '\\': result += '\\'; break;
@@ -58,18 +67,47 @@ static void parse_json_string(lua_State* L, const char*& json) {
                 case 'n': result += '\n'; break;
                 case 'r': result += '\r'; break;
                 case 't': result += '\t'; break;
-                default: result += *json; break;
+                case 'u': {
+                    // Unicode escape - need 4 hex digits
+                    json++;
+                    if (strlen(json) < 4) {
+                        lua_pushnil(L);
+                        return;
+                    }
+                    // For simplicity, just include the \u and 4 hex digits literally
+                    result += "\\u";
+                    for (int i = 0; i < 4; i++) {
+                        if (!isxdigit(json[i])) {
+                            lua_pushnil(L);
+                            return;
+                        }
+                        result += json[i];
+                    }
+                    json += 3; // Will be incremented by 1 at end of loop
+                    break;
+                }
+                default:
+                    // Invalid escape sequence
+                    result += *json;
+                    break;
             }
+        } else if (*json < 0x20) {
+            // Control characters must be escaped in JSON
+            lua_pushnil(L);
+            return;
         } else {
             result += *json;
         }
         json++;
     }
 
-    if (*json == '"') {
-        json++; // Skip closing quote
+    if (*json != '"') {
+        // Missing closing quote
+        lua_pushnil(L);
+        return;
     }
 
+    json++; // Skip closing quote
     lua_pushstring(L, result.c_str());
 }
 
@@ -79,26 +117,69 @@ static void parse_json_number(lua_State* L, const char*& json) {
 
     if (*json == '-') json++;
 
-    while (*json && (*json >= '0' && *json <= '9')) json++;
+    // Must have at least one digit
+    if (!(*json >= '0' && *json <= '9')) {
+        lua_pushnil(L);
+        return;
+    }
+
+    // Handle zero specially - if first digit is 0, next char must be . or e/E or end
+    if (*json == '0') {
+        json++;
+        if (*json >= '0' && *json <= '9') {
+            // Invalid: leading zeros not allowed
+            lua_pushnil(L);
+            return;
+        }
+    } else {
+        while (*json && (*json >= '0' && *json <= '9')) json++;
+    }
 
     if (*json == '.') {
         json++;
+        const char* frac_start = json;
         while (*json && (*json >= '0' && *json <= '9')) json++;
+        // Must have at least one digit after decimal point
+        if (json == frac_start) {
+            lua_pushnil(L);
+            return;
+        }
     }
 
     if (*json == 'e' || *json == 'E') {
         json++;
         if (*json == '+' || *json == '-') json++;
+        const char* exp_start = json;
         while (*json && (*json >= '0' && *json <= '9')) json++;
+        // Must have at least one digit in exponent
+        if (json == exp_start) {
+            lua_pushnil(L);
+            return;
+        }
     }
 
     std::string num_str(start, json - start);
-    double value = std::stod(num_str);
-    lua_pushnumber(L, value);
+
+    try {
+        double value = std::stod(num_str);
+        // Check for overflow/underflow
+        if (std::isfinite(value)) {
+            lua_pushnumber(L, value);
+        } else {
+            lua_pushnil(L);
+        }
+    } catch (...) {
+        lua_pushnil(L);
+    }
 }
 
 // Parse a JSON array
-static void parse_json_array(lua_State* L, const char*& json) {
+static void parse_json_array(lua_State* L, const char*& json, int depth) {
+    if (depth > MAX_JSON_DEPTH) {
+        lua_pushnil(L);
+        return;
+    }
+
     if (*json != '[') {
         lua_pushnil(L);
         return;
@@ -117,7 +198,9 @@ static void parse_json_array(lua_State* L, const char*& json) {
     int index = 1;
     while (true) {
         skip_whitespace(json);
-        parse_json_value(L, json);
+        if (!*json) break; // Unexpected end
+
+        parse_json_value(L, json, depth + 1);
         lua_rawseti(L, -2, index++);
 
         skip_whitespace(json);
@@ -128,13 +211,19 @@ static void parse_json_array(lua_State* L, const char*& json) {
             json++;
             break;
         } else {
+            // Malformed JSON
             break;
         }
     }
 }
 
 // Parse a JSON object
-static void parse_json_object(lua_State* L, const char*& json) {
+static void parse_json_object(lua_State* L, const char*& json, int depth) {
+    if (depth > MAX_JSON_DEPTH) {
+        lua_pushnil(L);
+        return;
+    }
+
     if (*json != '{') {
         lua_pushnil(L);
         return;
@@ -152,6 +241,7 @@ static void parse_json_object(lua_State* L, const char*& json) {
 
     while (true) {
         skip_whitespace(json);
+        if (!*json) break; // Unexpected end
 
         // Parse key (must be string)
         if (*json != '"') break;
@@ -162,7 +252,7 @@ static void parse_json_object(lua_State* L, const char*& json) {
         json++; // Skip ':'
 
         skip_whitespace(json);
-        parse_json_value(L, json);
+        parse_json_value(L, json, depth + 1);
 
         // Set table[key] = value
         lua_settable(L, -3);
@@ -175,21 +265,27 @@ static void parse_json_object(lua_State* L, const char*& json) {
             json++;
             break;
         } else {
+            // Malformed JSON
             break;
         }
     }
 }
 
 // Parse any JSON value
-static void parse_json_value(lua_State* L, const char*& json) {
+static void parse_json_value(lua_State* L, const char*& json, int depth) {
     skip_whitespace(json);
+
+    if (!*json) {
+        lua_pushnil(L);
+        return;
+    }
 
     if (*json == '"') {
         parse_json_string(L, json);
     } else if (*json == '{') {
-        parse_json_object(L, json);
+        parse_json_object(L, json, depth);
     } else if (*json == '[') {
-        parse_json_array(L, json);
+        parse_json_array(L, json, depth);
     } else if (*json == 't') {
         if (strncmp(json, "true", 4) == 0) {
             json += 4;
@@ -221,9 +317,13 @@ static void parse_json_value(lua_State* L, const char*& json) {
 // Main parse_json function - converts JSON string to Lua table
 static int parse_json(lua_State* L) {
     const char* json_str = luaL_checkstring(L, 1);
-    const char* json = json_str;
+    if (!json_str) {
+        lua_pushnil(L);
+        return 1;
+    }
 
-    parse_json_value(L, json);
+    const char* json = json_str;
+    parse_json_value(L, json, 0);
     return 1;
 }
 
